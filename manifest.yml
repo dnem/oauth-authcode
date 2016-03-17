@@ -1,0 +1,11 @@
+---
+applications:
+ - name: oauth-authcode
+   memory: 256M
+   instances: 1
+   buildpack: https://github.com/cloudfoundry/go-buildpack.git
+   timeout: 90
+   env:
+     SKIP_SSL_VALIDATION: true
+     GRANT_TYPE: authorization_code
+     AUTH_CALLBACK: https://oauth-authcode.apps.pcf.local/callback

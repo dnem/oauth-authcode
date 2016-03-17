@@ -46,7 +46,7 @@ func NewServer(appEnv *cfenv.App) *negroni.Negroni {
 	router := mux.NewRouter()
 
 	// Public Routes
-	router.HandleFunc("/", homeHandler())
+	router.HandleFunc("/", homeHandler(config))
 	router.HandleFunc("/callback", callbackHandler(sessionManager, config))
 
 	// Protected Routes

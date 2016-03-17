@@ -25,3 +25,7 @@ _testmain.go
 oauth-authcode
 main
 /local_config/env
+/buildlocal
+/local_config/
+/runlocal
+/wercker.yml
