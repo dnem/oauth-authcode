@@ -1,12 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"text/template"
 
@@ -35,45 +35,79 @@ func homeHandler(config *authConfig) http.HandlerFunc {
 	}
 }
 
-func accessHandler(sessionManager *session.Manager) http.HandlerFunc {
-
-	//TODO: Check scope
+func accessHandler(sessionManager *session.Manager, config *authConfig) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		session, _ := sessionManager.SessionStart(w, r)
 		defer session.SessionRelease(w)
 
-		// Getting the profile from the session
-		profile := session.Get("profile")
+		accessToken := session.Get("access_token")
 
-		//TODO: Do something compelling with profile data (html template?)
-		fmt.Fprintf(w, "USER DATA: %+v", profile)
+		token, err := parseToken(accessToken.(string))
+		if err != nil {
+			fmt.Printf("Error Parsing Token: %v", err)
+		}
+
+		if hasScope(token, "test.access", "test.admin") {
+			w.Header().Set("Content-Type", "text/html;charset=utf-8")
+			buf := bytes.NewBufferString(`
+<html>
+  <head>
+    <title>Access Page</title>
+  </head>
+  <body>
+    <h2>You have successfully reached the Access Page</h2>
+    <p>This page requires either the <code>test.access</code> or <code>test.admin</code> scope.</p>
+    <hr/>
+    <p>Visit the <a href="/protected/admin">Admin Page</a>.</p>
+  </body>
+</html>`)
+			w.Write(buf.Bytes())
+		} else {
+			fmt.Fprintf(w, "YOU ARE NOT AUTHORIZED")
+		}
 	}
 }
 
 func adminHandler(sessionManager *session.Manager) http.HandlerFunc {
 
-	//TODO: Check scope
-
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		session, _ := sessionManager.SessionStart(w, r)
 		defer session.SessionRelease(w)
 
-		// Getting the profile from the session
-		profile := session.Get("profile")
+		accessToken := session.Get("access_token")
 
-		//TODO: Do something compelling with profile data (html template?)
-		fmt.Fprintf(w, "USER DATA: %+v", profile)
+		token, err := parseToken(accessToken.(string))
+		if err != nil {
+			fmt.Printf("Error Parsing Token: %v", err)
+		}
+
+		if hasScope(token, "test.admin") {
+			w.Header().Set("Content-Type", "text/html;charset=utf-8")
+			buf := bytes.NewBufferString(`
+<html>
+  <head>
+    <title>Admin Page</title>
+  </head>
+  <body>
+    <h2>You have successfully reached the Admin Page</h2>
+    <p>This page requires the <code>test.admin</code> scope.</p>
+    <hr/>
+    <p>Visit the <a href="/protected/access">Access Page</a>.</p>
+  </body>
+</html>`)
+			w.Write(buf.Bytes())
+		} else {
+			fmt.Fprintf(w, "YOU ARE NOT AUTHORIZED")
+		}
 	}
 }
 
 func callbackHandler(sessionManager *session.Manager, config *authConfig) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("\nCALLBACK INVOKED BY IdP: %+v\n\n", r)
-
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
