@@ -18,7 +18,7 @@ func callbackHandler(sessionManager *session.Manager, config *authConfig) http.H
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		// set context with http client configured to skipSSL
-		ctx := getContext(false)
+		ctx := getContext(true)
 
 		// Instantiating the OAuth2 package to exchange the Code for a Token
 		conf := &oauth2.Config{
@@ -96,7 +96,7 @@ func callbackHandler(sessionManager *session.Manager, config *authConfig) http.H
 
 func getContext(skipSSL bool) (ctx context.Context) {
 	ctx = oauth2.NoContext
-	if skipSSL {
+	if !skipSSL {
 		return
 	}
 

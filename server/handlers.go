@@ -4,7 +4,9 @@ package server
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"text/template"
 
@@ -142,6 +144,7 @@ func userHandler(sessionManager *session.Manager, config *authConfig) http.Handl
 		<hr/>
     <p>Visit the <a href="/protected/access">Access Page</a>.</p>
     <p>Visit the <a href="/protected/admin">Admin Page</a>.</p>
+		<p>Invoke a secured <a href="/protected/backing">Backing Service</a>.</p>
 		</body>
 		</html>
 		`
@@ -162,7 +165,6 @@ func userHandler(sessionManager *session.Manager, config *authConfig) http.Handl
 		if err != nil {
 			fmt.Printf("Error Parsing Token: %v", err)
 		}
-		fmt.Printf("RAW ACCESS TOKEN: \n%s\n", accessToken)
 
 		scopes := accessToken.Claims["scope"]
 		a := scopes.([]interface{})
@@ -182,5 +184,61 @@ func userHandler(sessionManager *session.Manager, config *authConfig) http.Handl
 		t := template.Must(template.New("user").Parse(userTemplate))
 		t.Execute(w, ud)
 
+	}
+}
+
+func backingServiceHandler(sessionManager *session.Manager, config *authConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var userTemplate = `
+		<html>
+		<head>
+		<title>Invoke Backing Service</title>
+		</head>
+		<body>
+		<h2>Results from backing service:</h2>
+		<blockquote>
+			{{.Payload}}
+		</blockquote>
+		<hr/>
+    <p>Return to the <a href="/protected/user">User Page</a>.</p>
+		</body>
+		</html>
+		`
+		token, err := tokenFromSession(sessionManager, w, r)
+		if err != nil {
+			fmt.Printf("NO TOKEN IN REQUEST: %s\n", err)
+			http.Redirect(w, r, "/unauthorized", http.StatusUnauthorized)
+		}
+		tokenHeader := fmt.Sprintf("BEARER %s", token.AccessToken)
+
+		type serviceData struct {
+			Payload string
+		}
+		sd := &serviceData{
+			Payload: "--- not replaced ---",
+		}
+
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{Transport: tr}
+
+		req, _ := http.NewRequest("GET", "https://oauth-backing-service.apps.pcf.local/api/hello", nil)
+		req.Header.Set("Authorization", tokenHeader)
+		resp, err := client.Do(req)
+		defer resp.Body.Close()
+		if err != nil {
+			http.Error(w, "COULD NOT ACCESS BACKING SERVICE", http.StatusInternalServerError)
+		}
+
+		payload, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("ERROR MAKING SERVICE CALL!")
+		}
+
+		sd.Payload = bytes.NewBuffer(payload).String()
+
+		t := template.Must(template.New("service").Parse(userTemplate))
+		t.Execute(w, sd)
 	}
 }

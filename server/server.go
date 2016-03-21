@@ -36,9 +36,10 @@ func NewServer(appEnv *cfenv.App) *negroni.Negroni {
 
 	// Protected Routes
 	secure := mux.NewRouter()
+	secure.HandleFunc("/protected/user", userHandler(sessionManager, config))
 	secure.HandleFunc("/protected/access", accessHandler(sessionManager, config))
 	secure.HandleFunc("/protected/admin", adminHandler(sessionManager, config))
-	secure.HandleFunc("/protected/user", userHandler(sessionManager, config))
+	secure.HandleFunc("/protected/backing", backingServiceHandler(sessionManager, config))
 
 	router.PathPrefix("/protected").Handler(negroni.New(
 		negroni.HandlerFunc(isAuthenticated(sessionManager)),
