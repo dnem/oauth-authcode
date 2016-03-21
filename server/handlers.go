@@ -41,6 +41,8 @@ func unauthorizedHandler() http.HandlerFunc {
 				<body>
 					<h2>Unauthorized</h2>
 					<p>You are unauthorized to access page.</p>
+					<hr/>
+			    <p>Return to the <a href="/protected/user">User Page</a>.</p>
 				</body>
 			</html>`)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -129,43 +131,56 @@ func userHandler(sessionManager *session.Manager, config *authConfig) http.Handl
 		</head>
 		<body>
 		<h2>Welcome to the OAuth Authcode Profile Page</h2>
+		<h3>Profile Data</h3>
 		<table>
 			{{.ProfileData}}
 		</table>
+		<h3>Scopes</h3>
+		<ul>
+			{{.Scopes}}
+		</ul>
 		<hr/>
     <p>Visit the <a href="/protected/access">Access Page</a>.</p>
     <p>Visit the <a href="/protected/admin">Admin Page</a>.</p>
-
 		</body>
 		</html>
 		`
 
-		// token, err := tokenFromSession(sessionManager, w, r)
-		// if err != nil {
-		// 	fmt.Printf("NO TOKEN IN REQUEST: %s\n", err)
-		// 	http.Redirect(w, r, "/unauthorized", http.StatusUnauthorized)
-		// }
+		type userData struct {
+			ProfileData string
+			Scopes      string
+		}
+		ud := &userData{}
+
+		// Scopes
+		token, err := tokenFromSession(sessionManager, w, r)
+		if err != nil {
+			fmt.Printf("NO TOKEN IN REQUEST: %s\n", err)
+			http.Redirect(w, r, "/unauthorized", http.StatusUnauthorized)
+		}
+		accessToken, err := parseToken(token.AccessToken, config)
+		if err != nil {
+			fmt.Printf("Error Parsing Token: %v", err)
+		}
+		fmt.Printf("RAW ACCESS TOKEN: \n%s\n", accessToken)
+
+		scopes := accessToken.Claims["scope"]
+		a := scopes.([]interface{})
+		for _, scope := range a {
+			ud.Scopes += fmt.Sprintf("<li>%s</li>", scope)
+		}
+
+		// Profile Data
 		session, _ := sessionManager.SessionStart(w, r)
 		defer session.SessionRelease(w)
-
-		// var profile map[string]interface{}
-		// if err := json.Unmarshal([]byte(session.Get("profile")), &profile); err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
-
 		profile := session.Get("profile").(map[string]interface{})
 
-		type ud struct {
-			ProfileData string
-		}
-		userData := &ud{}
 		for k, v := range profile {
-			userData.ProfileData += fmt.Sprintf("<tr><td>%s</td><td>%s</td></tr>", k, v.(string))
+			ud.ProfileData += fmt.Sprintf("<tr><td>%s</td><td>%s</td></tr>", k, v.(string))
 		}
 
 		t := template.Must(template.New("user").Parse(userTemplate))
-		t.Execute(w, *userData)
+		t.Execute(w, ud)
 
 	}
 }
