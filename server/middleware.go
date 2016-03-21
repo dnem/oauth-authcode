@@ -12,7 +12,7 @@ func isAuthenticated(sessionManager *session.Manager) negroni.HandlerFunc {
 
 		session, _ := sessionManager.SessionStart(w, r)
 		defer session.SessionRelease(w)
-		if session.Get("profile") == nil {
+		if session.Get("token") == nil {
 			http.Redirect(w, r, "/", http.StatusMovedPermanently)
 		} else {
 			next(w, r)

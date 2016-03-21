@@ -89,7 +89,7 @@ func callbackHandler(sessionManager *session.Manager, config *authConfig) http.H
 		session.Set("profile", profile)
 
 		// Redirect to logged in page
-		http.Redirect(w, r, "/protected/access", http.StatusMovedPermanently)
+		http.Redirect(w, r, "/protected/user", http.StatusMovedPermanently)
 
 	}
 }
